@@ -1,0 +1,3 @@
+/Users/togawa/GitHub/CoinSelectorBackend/build/CMakeFiles/main.dir
+/Users/togawa/GitHub/CoinSelectorBackend/build/CMakeFiles/edit_cache.dir
+/Users/togawa/GitHub/CoinSelectorBackend/build/CMakeFiles/rebuild_cache.dir
