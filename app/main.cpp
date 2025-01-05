@@ -74,6 +74,59 @@ void generateColorBar(std::vector<uchar>& buffer)
     cv::imencode(".jpg", bar_img, buffer);
 }
 
+// 赤要素だけを抽出した画像を生成する関数
+// void extractRedChannel(const std::string& srcImpFilename, std::vector<uchar>& buffer) {
+//     // 入力画像を読み込む
+//     cv::Mat srcImg = cv::imread(srcImpFilename, cv::IMREAD_COLOR);
+
+//     // 画像が読み込めない場合のエラーチェック
+//     if (srcImg.empty()) {
+//         throw std::runtime_error("Error: Unable to read the input image!");
+//     }
+
+//     // 赤要素だけを抽出
+//     std::vector<cv::Mat> channels(3);
+//     cv::split(srcImg, channels); // BGRチャンネルに分割
+
+//     cv::Mat redChannel = channels[2]; // 赤要素 (BGRの3番目のチャンネル)
+
+//     // 他のチャンネルをゼロにして赤だけの画像を作成
+//     cv::Mat redOnlyImg = cv::Mat::zeros(srcImg.size(), srcImg.type());
+//     std::vector<cv::Mat> redChannels = {cv::Mat::zeros(srcImg.size(), CV_8UC1), 
+//                                          cv::Mat::zeros(srcImg.size(), CV_8UC1), 
+//                                          redChannel};
+//     cv::merge(redChannels, redOnlyImg);
+
+//     // メモリバッファに赤要素のみの画像を保存
+//     cv::imencode(".jpg", redOnlyImg, buffer);
+// }
+
+void extractRedChannel(const std::vector<uchar>& inputBuffer, std::vector<uchar>& outputBuffer) {
+    // メモリバッファから画像をデコード
+    cv::Mat inputImg = cv::imdecode(inputBuffer, cv::IMREAD_COLOR);
+
+    if (inputImg.empty()) {
+        throw std::runtime_error("Error: Unable to decode the input image!");
+    }
+
+    // BGRチャンネルに分割
+    std::vector<cv::Mat> channels(3);
+    cv::split(inputImg, channels);
+
+    // 赤チャンネルだけを使用
+    cv::Mat redOnlyImg = cv::Mat::zeros(inputImg.size(), inputImg.type());
+    std::vector<cv::Mat> redChannels = {cv::Mat::zeros(inputImg.size(), CV_8UC1),
+                                         cv::Mat::zeros(inputImg.size(), CV_8UC1),
+                                         channels[2]};
+    cv::merge(redChannels, redOnlyImg);
+
+    // 赤要素だけの画像をJPEG形式でエンコード
+    cv::imencode(".jpg", redOnlyImg, outputBuffer);
+}
+
+
+
+
 int main(void)
 {
     using namespace httplib;
@@ -81,14 +134,57 @@ int main(void)
 
     std::cout << "start Server!!" << std::endl;
 
-    // /image でカラーバー画像を返す
-    svr.Get("/image", [](const Request& req, Response& res) {
-        std::vector<uchar> buffer;  // 画像データを格納するバッファ
-        generateColorBar(buffer);   // カラーバー画像を生成してバッファに保存
+    // /red で赤要素だけを返す
+    // svr.Get("/image", [](const Request& req, Response& res) {
+    //     std::string inputFilename = "input.jpg";  // 入力画像ファイル名
+    //     std::vector<uchar> buffer;               // 出力バッファ
+    //     try {
+    //         // 赤要素だけを抽出して画像を生成
+    //         extractRedChannel(inputFilename, buffer);
 
-        // 画像データをHTTPレスポンスに設定
-        res.set_content(reinterpret_cast<const char*>(buffer.data()), buffer.size(), "image/jpeg");
+    //         // 生成した赤要素画像をファイルに保存（確認用）
+    //         cv::imwrite("red_channel.jpg", cv::imdecode(buffer, cv::IMREAD_COLOR));
+
+    //         std::cout << "Red channel image generated and saved as 'red_channel.jpg'" << std::endl;
+    //         // 画像データをHTTPレスポンスに設定
+    //         res.set_content(reinterpret_cast<const char*>(buffer.data()), buffer.size(), "image/jpeg");
+    //     } catch (const std::exception& e) {
+    //         std::cerr << e.what() << std::endl;
+    //         res.set_content("fail!!", "text/plain");
+    //     }
+    // });
+
+    // /imageエンドポイント: POSTで画像を受け取り加工して返す
+    svr.Post("/image", [](const Request& req, Response& res) {
+        try {
+            if (req.has_header("Content-Type") && req.get_header_value("Content-Type") == "image/jpeg") {
+                // 受信した画像データ
+                std::vector<uchar> inputBuffer(req.body.begin(), req.body.end());
+
+                // 赤要素だけの画像を生成
+                std::vector<uchar> outputBuffer;
+                extractRedChannel(inputBuffer, outputBuffer);
+
+                // 加工した画像をレスポンスとして返す
+                res.set_content(reinterpret_cast<const char*>(outputBuffer.data()), outputBuffer.size(), "image/jpeg");
+            } else {
+                res.status = 400;  // Bad Request
+                res.set_content("Invalid Content-Type. Expected image/jpeg.", "text/plain");
+            }
+        } catch (const std::exception& e) {
+            res.status = 500;  // Internal Server Error
+            res.set_content(std::string("Error: ") + e.what(), "text/plain");
+        }
     });
+
+    // /image でカラーバー画像を返す
+    // svr.Get("/image", [](const Request& req, Response& res) {
+    //     std::vector<uchar> buffer;  // 画像データを格納するバッファ
+    //     generateColorBar(buffer);   // カラーバー画像を生成してバッファに保存
+
+    //     // 画像データをHTTPレスポンスに設定
+    //     res.set_content(reinterpret_cast<const char*>(buffer.data()), buffer.size(), "image/jpeg");
+    // });
 
     svr.Get("/hi", [](const Request& req, Response& res) {
         res.set_content("Hello World!!!", "text/plain");
