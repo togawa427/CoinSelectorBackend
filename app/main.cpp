@@ -252,6 +252,10 @@ int main(void)
         set_cors_headers(res);
         res.status = 200; // OK
     });
+    svr.Options("/hi", [](const httplib::Request &req, httplib::Response &res) {
+        set_cors_headers(res);
+        res.status = 200; // OK
+    });
 
     // /imageエンドポイント: POSTで画像を受け取り加工して返す
     svr.Post("/imagePlus", [](const Request& req, Response& res) {
