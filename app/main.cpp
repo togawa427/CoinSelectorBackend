@@ -341,5 +341,5 @@ int main(void)
         res.set_content(numbers, "text/plain");
     });
 
-    svr.listen("localhost", 3000);
+    svr.listen("0.0.0.0", 3000);
 }
